@@ -133,6 +133,9 @@ static unsigned long find_victims(int *vindex)
 			victims[*vindex].mm = vtsk->mm;
 			victims[*vindex].size = get_total_mm_pages(vtsk->mm);
 
+		/* Keep track of the number of pages that have been found */
+		pages_found += varr[*vindex].size;
+
 			/* Count the number of pages that have been found */
 			pages_found += victims[*vindex].size;
 
