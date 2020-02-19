@@ -4147,7 +4147,6 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 	unsigned int zonelist_iter_cookie;
 	int reserve_flags;
 	bool woke_kswapd = false;
-	bool woke_kshrinkd = false;
 	bool used_vmpressure = false;
 
 	/*
@@ -4185,6 +4184,7 @@ restart:
 
 	if (gfp_mask & __GFP_KSWAPD_RECLAIM) {
 		if (!woke_kswapd) {
+<<<<<<< HEAD
 			atomic_long_inc(&kswapd_waiters);
 			woke_kswapd = true;
 		}
@@ -4194,6 +4194,11 @@ restart:
 		}
 		if (!used_vmpressure)
 			used_vmpressure = vmpressure_inc_users(order);
+=======
+			atomic_inc(&pgdat->kswapd_waiters);
+			woke_kswapd = true;
+		}
+>>>>>>> 0b6368f2a584... mm: Stop kswapd early when nothing's waiting for it to free pages
 		wake_all_kswapds(order, ac);
 	}
 
@@ -4419,11 +4424,15 @@ nopage:
 fail:
 got_pg:
 	if (woke_kswapd)
+<<<<<<< HEAD
 		atomic_long_dec(&kswapd_waiters);
 	if (woke_kshrinkd)
 		atomic_long_dec(&kshrinkd_waiters);
 	if (used_vmpressure)
 		vmpressure_dec_users();
+=======
+		atomic_dec(&pgdat->kswapd_waiters);
+>>>>>>> 0b6368f2a584... mm: Stop kswapd early when nothing's waiting for it to free pages
 	if (!page)
 		warn_alloc(gfp_mask, ac->nodemask,
 				"page allocation failure: order:%u", order);
@@ -6434,6 +6443,7 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat)
 	pgdat_page_ext_init(pgdat);
 	spin_lock_init(&pgdat->lru_lock);
 	lruvec_init(node_lruvec(pgdat));
+	pgdat->kswapd_waiters = (atomic_t)ATOMIC_INIT(0);
 
 	pgdat->per_cpu_nodestats = &boot_nodestats;
 
