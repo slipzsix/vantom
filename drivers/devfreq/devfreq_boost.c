@@ -126,7 +126,6 @@ bool df_boost_within_input(unsigned long timeout_ms)
 			   msecs_to_jiffies(timeout_ms));
 }
 
-
 void devfreq_boost_kick_max(enum df_device device, unsigned int duration_ms)
 {
 	struct df_boost_drv *d = &df_boost_drv_g;
@@ -332,9 +331,14 @@ static int __init devfreq_boost_init(void)
 	for (i = 0; i < DEVFREQ_MAX; i++) {
 		struct boost_dev *b = &d->devices[i];
 
+#ifdef CONFIG_CPU_PERF
 		thread[i] = kthread_run_perf_critical(cpu_perf_mask,
 						      devfreq_boost_thread, b,
 						      "devfreq_boostd/%d", i);
+#else
+		thread[i] = kthread_run(devfreq_boost_thread, b,
+					"devfreq_boostd/%d", i);
+#endif
 		if (IS_ERR(thread[i])) {
 			ret = PTR_ERR(thread[i]);
 			pr_err("Failed to create kthread, err: %d\n", ret);
