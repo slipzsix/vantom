@@ -4283,17 +4283,6 @@ retry:
 	/* Try direct reclaim and then allocating */
 	if (!used_vmpressure)
 		used_vmpressure = vmpressure_inc_users(order);
-	if (!woke_kshrinkd) {
-		/*
-		 * smp_mb__after_atomic() pairs with the wait_event_freezable()
-		 * in kshrinkd(). This is needed to order the waitqueue_active()
-		 * check inside wake_all_kshrinkds().
-		 */
-		atomic_long_inc(&kshrinkd_waiters);
-		smp_mb__after_atomic();
-		wake_all_kshrinkds(ac);
-		woke_kshrinkd = true;
-	}
 	page = __alloc_pages_direct_reclaim(gfp_mask, order, alloc_flags, ac,
 							&did_some_progress);
 	if (page)
@@ -4425,7 +4414,12 @@ got_pg:
 >>>>>>> 0b6368f2a584... mm: Stop kswapd early when nothing's waiting for it to free pages
 =======
 		atomic_long_dec(&kswapd_waiters);
+<<<<<<< HEAD
 >>>>>>> d675b186d8ac... mm: Don't stop kswapd on a per-node basis when there are no waiters
+=======
+	if (used_vmpressure)
+		vmpressure_dec_users();
+>>>>>>> d78e1416dc81... mm: vmpressure: Fix rampant inaccuracies caused by stale data usage
 	if (!page)
 		warn_alloc(gfp_mask, ac->nodemask,
 				"page allocation failure: order:%u", order);
