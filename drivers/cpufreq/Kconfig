@@ -434,7 +434,6 @@ config MIN_FREQ_PERF
 	  Min freq to set for hp cluster when boost is over.
 endif
 
-
 config CPUFREQ_DT
 	tristate "Generic DT based cpufreq driver"
 	depends on HAVE_CLK && OF
