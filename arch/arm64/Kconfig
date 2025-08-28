@@ -696,6 +696,14 @@ config QCOM_FALKOR_ERRATUM_E1041
 
 endmenu
 
+config HAVE_MOVE_PUD
+	bool "Enable remapping at PUD level" if EXPERT
+	help
+	  Allow mremap() to move large regions at the PUD level on arm64.
+	  This can improve performance significantly when remapping large,
+	  PUD-aligned virtual memory areas (up to ~19x speedup).
+
+	  If unsure, say N.
 
 choice
 	prompt "Page size"
