@@ -1,4 +1,4 @@
-name: build 
+name: SuperRyzenS [MIUI-OS]
 on:
   workflow_dispatch:
 jobs:
@@ -9,60 +9,75 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Prepare timezone 
-      run: |       
+      run: |
+            echo "BUILD_TIME=$(TZ=Asia/Jakarta date "+%d%m%Y-%H%M")" >> $GITHUB_ENV
             sudo rm /etc/localtime
             sudo ln -s /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
         
     - name: Install Dependencies
       run: |
             sudo apt update -y
-            sudo apt install bc cpio flex bison aptitude git python-is-python3 tar aria2 perl wget curl lz4 -y
-            sudo apt install libssl-dev -y
+            sudo apt install bc cpio flex bison aptitude git python-is-python3 tar perl wget curl lz4 lld llvm -y
+            sudo aptitude install libssl-dev -y
         
-    - name: Clone Toolchains
+    - name: Fetch Toolchains 
       run: |
-            mkdir clang && curl  https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r536225.tar.gz -RLO && tar -C clang/ -xvf clang-*.tar.gz
-            git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 gcc64
-            git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 gcc32
+            mkdir clang && cd clang && curl -LO "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman" && chmod a+x antman && ./antman -S && ./antman --patch=glibc && cd ..
+            git clone https://github.com/greenforce-project/gcc-arm64 -b main --depth=1 gcc64
+            git clone https://github.com/greenforce-project/gcc-arm -b main --depth=1 gcc32
+            echo "CLANG_PATH=$(pwd)/clang" >> $GITHUB_ENV
+            echo "GCC64_PATH=$(pwd)/gcc64" >> $GITHUB_ENV
+            echo "GCC32_PATH=$(pwd)/gcc32" >> $GITHUB_ENV
+                                    
+    - name: Fetch KernelSU-SuSFS
+      run: |
+            curl -LSs "https://raw.githubusercontent.com/buildkernel1/KernelSU-Next/susfs/kernel/setup.sh" | bash -s susfs  
 
-    - name: Setup Environment
+    - name: MIUI Dimensi
       run: |
-            echo "BUILD_TIME=$(TZ=Asia/Jakarta date "+%d-%m-%Y")" >> $GITHUB_ENV
-            echo "CLANG_PATH=$GITHUB_WORKSPACE/clang" >> $GITHUB_ENV
-            echo "GCC64_PATH=$GITHUB_WORKSPACE/gcc64" >> $GITHUB_ENV
-            echo "GCC32_PATH=$GITHUB_WORKSPACE/gcc32" >> $GITHUB_ENV
-        
-    - name: Clone kernelSU-Next
+            sed -i 's/qcom,mdss-pan-physical-width-dimension = <69>;$/qcom,mdss-pan-physical-width-dimension = <695>;/' arch/arm64/boot/dts/qcom/dsi-panel-k6-38-0c-0a-fhd-dsc-video.dtsi
+            sed -i 's/qcom,mdss-pan-physical-height-dimension = <154>;$/qcom,mdss-pan-physical-height-dimension = <1546>;/' arch/arm64/boot/dts/qcom/dsi-panel-k6-38-0c-0a-fhd-dsc-video.dtsi
+    
+    - name: Clean previous build
       run: |
-            curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
-                                                         
-                                                         
-    - name: Build Kernel
+            make clean && make mrproper
+    
+    - name: Build
       run: |
-            export ARCH=arm64
-            export PATH="$CLANG_PATH/bin:$GCC64_PATH/bin:$GCC32_PATH/bin:$PATH"
-            export KBUILD_BUILD_USER=builder
-            export KBUILD_BUILD_HOST=denomsly
-            export KBUILD_COMPILER_STRING="$$CLANG_PATH/clang"
-            make O=out ARCH=arm64 sweet_defconfig 
-            make -j$(nproc --all) O=out \ ARCH=arm64 \ LLVM=1 \ LLVM_IAS=1 \ CC=clang \ CLANG_TRIPLE=$CLANG_PATH/aarch64-linux-gnu- \ CROSS_COMPILE=$GCC64_PATH/bin/aarch64-elf- \ CROSS_COMPILE_ARM32=$GCC32_PATH/bin/arm-eabi-         
-            mv out/.config out/sweet_defconfig.txt
+           export ARCH=arm64
+           export PATH="$CLANG_PATH/bin:$GCC64_PATH/bin:$GCC32_PATH/bin:$PATH"
+           export KBUILD_BUILD_USER=runner
+           export KBUILD_BUILD_HOST=slipzsix
+           export KBUILD_COMPILER_STRING="$CLANG_PATH/clang"
+           make O=out vendor/sweet_defconfig
+           make -j$(nproc --all) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 \
+             CC=clang \
+             CLANG_TRIPLE=aarch64-linux-gnu- \
+             CROSS_COMPILE=$GCC64_PATH/bin/aarch64-elf- \
+             CROSS_COMPILE_ARM32=$GCC32_PATH/bin/arm-eabi-
+           mv out/.config out/sweet_defconfig.txt
            
-    - name: Upload configs
+    - name: Upload defconfig 
       uses: actions/upload-artifact@v4
       with:
-        name: configs-${{ env.BUILD_TIME }}
+        name: defconfig-${{ env.BUILD_TIME }}
         path: out/sweet_defconfig.txt
-          
-    - name: Clone Anykernel3
+
+    - name: Fetch AnyKernel3
       run: |
-            git clone --depth=1 https://github.com/agni-prjkt/anykernel3 -b main AnyKernel3 
+           git clone --depth=1 https://github.com/slipzsix/Anykernel3.git -b main AnyKernel3  
+           if [ -f out/arch/arm64/boot/Image.gz ]; then
             cp out/arch/arm64/boot/Image.gz AnyKernel3/Image.gz
+           fi
+           if [ -f out/arch/arm64/boot/dtbo.img ]; then
             cp out/arch/arm64/boot/dtbo.img AnyKernel3/dtbo.img
+           fi           
+           if [ -f out/arch/arm64/boot/dtb.img ]; then
             cp out/arch/arm64/boot/dtb.img AnyKernel3/dtb.img
+           fi
                     
-    - name: Upload Flashable zip
+    - name: Upload Kernel
       uses: actions/upload-artifact@v4
       with:
-        name: AGNI-Kernel-MIUI-${{ env.BUILD_TIME }}
+        name: SuperRyzenS-MIUI-OS-${{ env.BUILD_TIME }}
         path: AnyKernel3/*
