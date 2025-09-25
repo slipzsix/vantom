@@ -753,6 +753,9 @@ KBUILD_CFLAGS	+= $(call cc-disable-warning, format-overflow)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, int-in-bool-context)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, address-of-packed-member)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, attribute-alias)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, stringop-overread)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, array-compare)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, address)
 
 KBUILD_CFLAGS	+= $(OPT_FLAGS)
 KBUILD_AFLAGS   += $(OPT_FLAGS)
@@ -779,15 +782,8 @@ KBUILD_CFLAGS	+= -mllvm -polly \
 endif
 endif
 
-ifdef CONFIG_LLVM_POLLY
-KBUILD_CFLAGS	+= -mllvm -polly \
-		   -mllvm -polly-run-dce \
-		   -mllvm -polly-run-inliner \
-		   -mllvm -polly-ast-use-context \
-		   -mllvm -polly-detect-keep-going \
-		   -mllvm -polly-vectorizer=stripmine \
-		   -mllvm -polly-invariant-load-hoisting
-endif
+ifdef CONFIG_CC_WERROR
+KBUILD_CFLAGS  += -Werror
 endif
 
 # Tell gcc to never replace conditional load with a non-conditional one
